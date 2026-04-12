@@ -15,7 +15,7 @@ Upload syllabus + resources, unlock topics with quizzes, and learn through an in
 
 ## Snapshot
 
-![EngiFlow Preview](frontend/src/assets/hero.png)
+![EngiFlow Preview](frontend/src/assets/product-screenshot.png)
 
 ## One-Minute Demo Flow
 
