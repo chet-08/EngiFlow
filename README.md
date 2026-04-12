@@ -8,9 +8,20 @@
 AI-powered study flow for engineering students.
 Upload syllabus + resources, unlock topics with quizzes, and learn through an interactive tutor.
 
+## Demo
+
+[![Open Repository](https://img.shields.io/badge/Open-Repository-111827?style=for-the-badge&logo=github)](https://github.com/chet-08/EngiFlow)
+[![Video Walkthrough](https://img.shields.io/badge/Video-Walkthrough-dc2626?style=for-the-badge&logo=youtube)](#video-walkthrough)
+
 ## Snapshot
 
 ![EngiFlow Preview](frontend/src/assets/hero.png)
+
+## Product Walkthrough
+
+![EngiFlow Demo GIF](frontend/src/assets/hero.png)
+
+Add a short GIF at `frontend/src/assets/demo.gif` and replace the image path above when ready.
 
 ## One-Minute Demo Flow
 
@@ -27,6 +38,13 @@ Upload syllabus + resources, unlock topics with quizzes, and learn through an in
 - Topic unlocking based on performance instead of static content access
 - Personalized context via your uploaded knowledge documents
 - Fast UX with interactive graph and dashboard components
+
+## Impact
+
+- Problem solved: students lose momentum when syllabus, resources, and practice are disconnected
+- Measured outcome target: reduce topic-to-topic drop-off by 30%
+- Measured outcome target: reduce answer search time during study by 40%
+- Build quality signal: personalized retrieval + gated progression + interactive tutor in one system
 
 ## Core Features
 
@@ -161,6 +179,11 @@ Main route groups:
 - Add persistent database for progress and profile state
 - Add tests for router and service layers
 - Add Docker and one-command local startup
+
+## Video Walkthrough
+
+Add your demo link here once recorded.
+Example: `https://www.youtube.com/watch?v=your_demo_id`
 
 ## License
 
