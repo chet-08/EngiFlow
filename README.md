@@ -1,16 +1,32 @@
 # EngiFlow
 
-> AI-powered study flow for engineering students.
-> Upload syllabus + resources, unlock topics with quizzes, and learn through an interactive tutor.
+[![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg)](LICENSE)
+![Status](https://img.shields.io/badge/Status-Prototype-f59e0b)
+![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-2563eb)
+![Backend](https://img.shields.io/badge/Backend-FastAPI-059669)
 
-## Why EngiFlow
+AI-powered study flow for engineering students.
+Upload syllabus + resources, unlock topics with quizzes, and learn through an interactive tutor.
 
-EngiFlow combines four things in one loop:
+## Snapshot
 
-- Structured learning path from a syllabus PDF
-- Personal knowledge base from uploaded textbooks/notes
-- AI tutor for explanations, deep dives, and generated notes
-- Progress engine that gates and unlocks topics based on quiz performance
+![EngiFlow Preview](frontend/src/assets/hero.png)
+
+## One-Minute Demo Flow
+
+1. Sign in with Google (Firebase Auth).
+2. Upload your syllabus PDF.
+3. EngiFlow parses it into a structured topic tree.
+4. Upload a textbook or notes to build your private knowledge base.
+5. Ask the AI tutor questions about a selected topic.
+6. Attempt quizzes and unlock the next topics automatically.
+
+## Why It Stands Out
+
+- Learning path + AI tutor + resource retrieval in one product loop
+- Topic unlocking based on performance instead of static content access
+- Personalized context via your uploaded knowledge documents
+- Fast UX with interactive graph and dashboard components
 
 ## Core Features
 
@@ -26,18 +42,14 @@ EngiFlow combines four things in one loop:
 ```mermaid
 flowchart LR
     A[React + Vite Frontend] -->|Firebase ID Token| B[FastAPI Backend]
-    B --> C[Auth Service
-Firebase Admin Verify]
+    B --> C[Auth Service\nFirebase Admin Verify]
     B --> D[Syllabus Router]
     B --> E[Tutor Router]
     B --> F[Progress Router]
     B --> G[Knowledge Router]
-    D --> H[AI Parser
-Google GenAI + PDF parse]
-    E --> I[AI Tutor
-Google GenAI]
-    G --> J[Vector Store
-ChromaDB + Embeddings]
+    D --> H[AI Parser\nGoogle GenAI + PDF parse]
+    E --> I[AI Tutor\nGoogle GenAI]
+    G --> J[Vector Store\nChromaDB + Embeddings]
     F --> K[Progress Engine]
     J --> L[(Local Chroma DB)]
 ```
@@ -87,8 +99,7 @@ pip install fastapi uvicorn pydantic firebase-admin chromadb pymupdf google-gena
 
 Create required environment variables:
 
-```bash
-# Windows PowerShell
+```powershell
 $env:GEMINI_API_KEY="your_key_here"
 ```
 
