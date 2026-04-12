@@ -134,8 +134,8 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 API docs:
 
-- Swagger: http://127.0.0.1:8000/docs
-- Health: http://127.0.0.1:8000/health
+- Swagger: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
 ### 3) Frontend Setup (React + Vite)
 
@@ -147,7 +147,7 @@ npm run dev
 
 Frontend dev URL:
 
-- http://127.0.0.1:5173
+- [http://127.0.0.1:5173](http://127.0.0.1:5173)
 
 ## API Surface
 
@@ -183,7 +183,7 @@ Main route groups:
 ## Video Walkthrough
 
 Add your demo link here once recorded.
-Example: `https://www.youtube.com/watch?v=your_demo_id`
+Example: [https://www.youtube.com/watch?v=your_demo_id](https://www.youtube.com/watch?v=your_demo_id)
 
 ## License
 
