@@ -1,0 +1,343 @@
+import React, { useState } from 'react';
+import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
+import 'reactflow/dist/style.css';
+import { logout } from './firebase';
+
+const SyllabusTree = ({ user, token }) => {
+  const [file, setFile] = useState(null);
+  const [syllabusData, setSyllabusData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  
+  // Graph State
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+
+  // Sidebar & AI Tutor State
+  const [selectedTopic, setSelectedTopic] = useState(null);
+  const [topicNote, setTopicNote] = useState(null);
+  const [isNoteLoading, setIsNoteLoading] = useState(false);
+
+  // Focus Mode specific states
+  const [isQuizVisible, setIsQuizVisible] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatHistory, setChatHistory] = useState([]);
+
+  const handleFileChange = (e) => setFile(e.target.files[0]);
+
+  const handleUpload = async () => {
+    if (!file) return alert("Please select a PDF syllabus first!");
+    setLoading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/syllabus/upload-syllabus", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Failed to parse syllabus");
+      
+      const data = await response.json();
+  
+      // --- SAFETY CHECK ---
+      if (data.CRITICAL_CRASH) {
+        alert("🚨 Backend Error: " + data.CRITICAL_CRASH);
+        return; 
+      }
+      // --------------------
+
+      setSyllabusData(data);
+      generateGraph(data);
+
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- THE CLICK HANDLER ---
+  const onNodeClick = async (event, node) => {
+    if (node.id.startsWith("u") && !node.id.includes("t")) return;
+
+    if (node.style.backgroundColor === '#64748b') {
+      return alert("🔒 This topic is locked! You must complete previous topics first.");
+    }
+
+    // Trigger Focus Mode Layout
+    setSelectedTopic(node.data.label);
+    setTopicNote(null);
+    setIsNoteLoading(true);
+    setIsQuizVisible(false); // Reset quiz visibility
+    setChatHistory([]); // Reset chat
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/tutor/generate-note", {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          topic_title: node.data.label,
+          semester: "4th" 
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to generate AI Note");
+      
+      const data = await response.json();
+      setTopicNote(data);
+
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setIsNoteLoading(false);
+    }
+  };
+
+  // --- CHAT SUBMIT HANDLER ---
+  const handleAskQuestion = () => {
+    if (!chatInput.trim()) return;
+    
+    // Add user message to UI
+    const newChat = [...chatHistory, { sender: 'user', text: chatInput }];
+    setChatHistory(newChat);
+    setChatInput("");
+
+    // Simulate AI thinking for the hackathon UI (You can wire this to a real backend endpoint later!)
+    setTimeout(() => {
+      setChatHistory([...newChat, { 
+        sender: 'ai', 
+        text: "That's a great question! Based on this topic, the deeper mechanics involve adjusting the heuristic weights..." 
+      }]);
+    }, 1000);
+  };
+
+  const generateGraph = (data) => {
+    const newNodes = [];
+    const newEdges = [];
+    let yOffset = 50; 
+
+    data.units.forEach((unit, unitIndex) => {
+      newNodes.push({
+        id: unit.id,
+        position: { x: 50, y: yOffset },
+        data: { label: `Unit ${unitIndex + 1}: ${unit.title}` },
+        style: { backgroundColor: '#1e293b', color: 'white', border: '2px solid #3b82f6', fontWeight: 'bold', width: 250 }
+      });
+
+      unit.topics.forEach((topic) => {
+        let bgColor = '#64748b'; // Locked
+        if (topic.status === 'unlocked') bgColor = '#eab308'; // Unlocked
+        if (topic.status === 'completed') bgColor = '#22c55e'; // Completed
+
+        newNodes.push({
+          id: topic.id,
+          position: { x: 400, y: yOffset },
+          data: { label: topic.title },
+          style: { backgroundColor: bgColor, color: 'white', border: 'none', borderRadius: '8px', width: 200, cursor: 'pointer' }
+        });
+
+        newEdges.push({
+          id: `e-${unit.id}-${topic.id}`,
+          source: unit.id,
+          target: topic.id,
+          animated: true,
+          style: { stroke: '#94a3b8' }
+        });
+
+        yOffset += 80; 
+      });
+      yOffset += 40; 
+    });
+
+    setNodes(newNodes);
+    setEdges(newEdges);
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden">
+      {/* Header */}
+      <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950 z-20 shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold text-blue-500">EngiFlow</h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-slate-400">Welcome, {user.displayName}</p>
+          <button onClick={logout} className="px-4 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded transition text-sm font-semibold">
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-grow flex relative overflow-hidden">
+        
+        {/* =========================================
+            STATE 1: UPLOAD SCREEN
+        ============================================= */}
+        {!syllabusData ? (
+          <div className="w-full flex items-center justify-center bg-slate-900">
+            <div className="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md text-center border border-slate-700">
+              <h2 className="text-2xl font-bold mb-6">Upload Your Syllabus</h2>
+              <input type="file" accept="application/pdf" onChange={handleFileChange} className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500/20 file:text-blue-400 hover:file:bg-blue-500/30 mb-6 cursor-pointer" />
+              <button onClick={handleUpload} disabled={loading} className={`w-full py-3 rounded-lg font-bold transition ${loading ? "bg-slate-700 cursor-not-allowed text-slate-400" : "bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/20"}`}>
+                {loading ? "Parsing with AI..." : "Generate Skill Tree"}
+              </button>
+            </div>
+          </div>
+
+        /* =========================================
+            STATE 2: FULL SCREEN TREE (UNFOCUSED)
+        ============================================= */
+        ) : !selectedTopic ? (
+          <div className="w-full h-full animate-in fade-in duration-300">
+            <ReactFlow nodes={nodes} edges={edges} onNodeClick={onNodeClick} fitView className="bg-slate-900">
+              <Background color="#334155" gap={20} />
+              <Controls className="bg-white fill-slate-800" />
+            </ReactFlow>
+          </div>
+
+        /* =========================================
+            STATE 3: FOCUS MODE (LEFT RAIL + CENTER TUTOR)
+        ============================================= */
+        ) : (
+          <div className="flex w-full h-full bg-slate-950 animate-in slide-in-from-bottom-4 duration-500">
+            
+            {/* --- LEFT MINI RAIL --- */}
+            <div className="w-20 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-6 shrink-0 z-10 shadow-xl">
+              <button 
+                onClick={() => setSelectedTopic(null)} 
+                className="w-12 h-12 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white rounded-xl flex items-center justify-center transition-all shadow-md group relative"
+              >
+                {/* SVG Back Arrow */}
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                <span className="absolute left-16 bg-slate-800 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">Back to Tree</span>
+              </button>
+
+              <div className="w-8 h-px bg-slate-700 my-6"></div>
+
+              {/* Placeholder for "Workable Trees" */}
+              <div title="Current Subject: AI" className="w-12 h-12 bg-blue-500/20 border border-blue-500/50 rounded-xl flex items-center justify-center text-blue-400 font-bold cursor-pointer">
+                AI
+              </div>
+            </div>
+
+            {/* --- CENTER STAGE (AI TUTOR) --- */}
+            <div className="flex-1 overflow-y-auto bg-slate-950 p-8 scroll-smooth">
+              <div className="max-w-4xl mx-auto space-y-8 pb-24">
+                
+                {/* Title */}
+                <h1 className="text-4xl font-extrabold text-white border-b border-slate-800 pb-6">
+                  {selectedTopic}
+                </h1>
+
+                {/* Content Loader vs Note */}
+                {isNoteLoading ? (
+                  <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                    <p className="text-lg">The AI Professor is preparing your lesson...</p>
+                  </div>
+                ) : topicNote ? (
+                  <>
+                    {/* Lesson Blocks */}
+                    <div className="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 shadow-sm leading-relaxed text-slate-300 text-lg space-y-6">
+                      <div>
+                        <h3 className="text-sm font-bold text-blue-500 uppercase tracking-widest mb-3">Concept Breakdown</h3>
+                        <p className="whitespace-pre-wrap">{topicNote.explanation}</p>
+                      </div>
+                    </div>
+
+                    {topicNote.key_formula && (
+                      <div className="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 shadow-sm">
+                        <h3 className="text-sm font-bold text-purple-500 uppercase tracking-widest mb-4">Key Formula</h3>
+                        <div className="bg-black/50 p-6 rounded-xl font-mono text-center text-purple-300 text-2xl border border-purple-500/20">
+                          {topicNote.key_formula}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 shadow-sm">
+                      <h3 className="text-sm font-bold text-emerald-500 uppercase tracking-widest mb-3">Real World Application</h3>
+                      <p className="text-slate-300 text-lg leading-relaxed">{topicNote.real_world_application}</p>
+                    </div>
+
+                    {/* DEEP DIVE CHAT INTERFACE */}
+                    <div className="mt-12 bg-slate-900 p-6 rounded-2xl border border-slate-700 shadow-lg">
+                      <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <span>💬</span> Need more depth? Ask the Professor
+                      </h3>
+                      
+                      {/* Chat History */}
+                      {chatHistory.length > 0 && (
+                        <div className="space-y-4 mb-4 max-h-60 overflow-y-auto p-2">
+                          {chatHistory.map((msg, idx) => (
+                            <div key={idx} className={`p-3 rounded-lg text-sm max-w-[85%] ${msg.sender === 'user' ? 'bg-blue-600 ml-auto text-white' : 'bg-slate-800 border border-slate-700 text-slate-200'}`}>
+                              {msg.text}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Input Box */}
+                      <div className="flex gap-3">
+                        <input 
+                          type="text" 
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAskQuestion()}
+                          placeholder="E.g., Can you explain the heuristic part again with an example?" 
+                          className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-5 py-3 text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                        />
+                        <button onClick={handleAskQuestion} className="bg-blue-600 px-6 py-3 rounded-xl font-bold hover:bg-blue-500 transition-colors shadow-md">
+                          Ask
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* GENERATE QUIZ BUTTON OR QUIZ UI */}
+                    <div className="pt-12 pb-8 flex justify-center border-t border-slate-800 mt-12">
+                      {!isQuizVisible ? (
+                        <button 
+                          onClick={() => setIsQuizVisible(true)}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-4 rounded-full font-bold text-lg shadow-[0_0_30px_rgba(5,150,105,0.3)] hover:shadow-[0_0_40px_rgba(5,150,105,0.5)] hover:-translate-y-1 transition-all"
+                        >
+                          Generate Quick Quiz 🛡️
+                        </button>
+                      ) : (
+                        <div className="w-full bg-slate-900 p-8 rounded-2xl border-2 border-emerald-500/30 shadow-2xl animate-in slide-in-from-bottom-8 duration-500">
+                          <h3 className="text-xl font-bold text-emerald-400 mb-6 flex items-center gap-2">
+                            <span>🛡️</span> Gatekeeper Quiz
+                          </h3>
+                          {topicNote.quizzes && topicNote.quizzes.length > 0 ? (
+                            <div className="space-y-6">
+                              <p className="font-semibold text-lg text-white">{topicNote.quizzes[0].question}</p>
+                              <div className="grid grid-cols-1 gap-3">
+                                {topicNote.quizzes[0].options.map((opt, idx) => (
+                                  <button key={idx} className="w-full text-left p-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-emerald-500/50 transition-all text-slate-200 font-medium group">
+                                    <span className="inline-block w-6 text-slate-500 group-hover:text-emerald-400">{['A', 'B', 'C', 'D'][idx]}.</span> {opt}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-slate-400">No quiz questions were generated for this topic.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default SyllabusTree;

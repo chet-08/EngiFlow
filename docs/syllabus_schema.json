@@ -1,0 +1,38 @@
+{
+  "subject": "Fluid Mechanics",
+  "units": [
+    {
+      "id": "u1",
+      "title": "Properties of Fluids",
+      "topics": [
+        {
+          "id": "u1_t1",
+          "title": "Density & Specific Gravity",
+          "status": "completed",
+          "content_ref": "textbook_p45.pdf",
+          "prerequisites": []
+        },
+        {
+          "id": "u1_t2",
+          "title": "Viscosity & Newton's Law",
+          "status": "unlocked",
+          "content_ref": "textbook_p48.pdf",
+          "prerequisites": ["u1_t1"]
+        }
+      ]
+    },
+    {
+      "id": "u2",
+      "title": "Fluid Statics",
+      "topics": [
+        {
+          "id": "u2_t1",
+          "title": "Pascal's Law",
+          "status": "locked",
+          "content_ref": "textbook_p62.pdf",
+          "prerequisites": ["u1_t2"]
+        }
+      ]
+    }
+  ]
+}

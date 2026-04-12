@@ -1,0 +1,231 @@
+import React, { useState, useMemo } from 'react';
+import ReactFlow, { Background, Controls, MarkerType } from 'reactflow';
+import dagre from 'dagre';
+import 'reactflow/dist/style.css';
+
+// ==========================================
+// 1. THE LAYOUT ENGINE (The Secret to the Fan!)
+// ==========================================
+const getLayoutedElements = (nodes, edges) => {
+  const g = new dagre.graphlib.Graph();
+  
+  // RANKDIR 'LR' is Left-to-Right.
+  // We use wide horizontal distance (ranksep: 280) but 
+  // ultra-tight vertical distance (nodesep: 20) to force the nodes to bundle into an organic fan!
+  g.setGraph({ rankdir: 'LR', ranksep: 280, nodesep: 20 }); 
+  g.setDefaultEdgeLabel(() => ({}));
+
+  nodes.forEach((node) => {
+    // We make bounding boxes shorter so Dagre can pack them tighter vertically
+    const width = node.data.isSubtopic ? 220 : 280;
+    const height = node.data.isSubtopic ? 50 : 60;
+    g.setNode(node.id, { width, height });
+  });
+
+  edges.forEach((edge) => {
+    g.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(g);
+
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = g.node(node.id);
+    return {
+      ...node,
+      targetPosition: 'left', // Inputs connect from the left
+      sourcePosition: 'right', // Outputs connect to the right
+      position: {
+        x: nodeWithPosition.x - 140, // Half of normal width
+        y: nodeWithPosition.y - 30,  // Half of normal height
+      },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+};
+
+// ==========================================
+// 2. THE MAIN CANVAS COMPONENT
+// ==========================================
+const SkillTreeCanvas = ({ syllabusData, onNodeClick }) => {
+  // Track which Units are expanded
+  const [expandedUnits, setExpandedUnits] = useState(
+    syllabusData?.units.length > 0 ? [syllabusData.units[0].id] : []
+  );
+
+  const toggleUnit = (unitId) => {
+    setExpandedUnits((prev) =>
+      prev.includes(unitId)
+        ? prev.filter((id) => id !== unitId)
+        : [...prev, unitId]
+    );
+  };
+
+  const { nodes, edges } = useMemo(() => {
+    if (!syllabusData) return { nodes: [], edges: [] };
+
+    const rawNodes = [];
+    const rawEdges = [];
+
+    syllabusData.units.forEach((unit, unitIndex) => {
+      const isExpanded = expandedUnits.includes(unit.id);
+
+      // ==========================================
+      // LEVEL 1: UNIT HUBS (Soft Pastel Blue Pill)
+      // ==========================================
+      rawNodes.push({
+        id: unit.id,
+        data: {
+          label: (
+            <div className="flex justify-between items-center w-full px-2 font-bold">
+              <span className="text-left truncate">Unit {unitIndex + 1}: {unit.title}</span>
+              <span className="text-xl ml-4 opacity-70 shrink-0">{isExpanded ? '▼' : '▶'}</span>
+            </div>
+          ),
+          isTopic: false
+        },
+        style: {
+          backgroundColor: '#dbeafe', // Pastel Blue
+          color: '#1e3a8a', // Dark Blue Text
+          border: isExpanded ? '3px solid #93c5fd' : '2px solid #bfdbfe',
+          width: 300,
+          cursor: 'pointer',
+          borderRadius: '50px', // Organic Pill Shape
+          padding: '14px 20px',
+          boxShadow: '0 4px 15px rgba(219, 234, 254, 0.2)'
+        }
+      });
+
+      if (isExpanded) {
+        unit.topics.forEach((topic) => {
+          
+          // ==========================================
+          // LEVEL 2: TOPIC NODES (The Main Arc - status based)
+          // ==========================================
+          let bgColor = '#f1f5f9'; // Pastel Slate (Locked)
+          let textColor = '#64748b'; 
+          let borderColor = '#e2e8f0';
+          let edgeColor = '#475569';
+
+          if (topic.status === 'unlocked') { 
+            bgColor = '#fef08a'; // Glowing Pastel Yellow
+            textColor = '#854d0e'; 
+            borderColor = '#fde047'; 
+            edgeColor = '#facc15';
+          } 
+          if (topic.status === 'completed') { 
+            bgColor = '#bbf7d0'; // Soft Pastel Green
+            textColor = '#166534'; 
+            borderColor = '#86efac'; 
+            edgeColor = '#4ade80';
+          }
+
+          rawNodes.push({
+            id: topic.id,
+            data: {
+              label: ( <div className="text-sm font-bold leading-snug line-clamp-2 text-left">{topic.title}</div> ),
+              isTopic: true,
+              rawTitle: topic.title,
+              status: topic.status
+            },
+            style: {
+              backgroundColor: bgColor,
+              color: textColor,
+              border: `2px solid ${borderColor}`,
+              borderRadius: '50px', // Pill Shape
+              width: 260,
+              padding: '12px 20px',
+              cursor: topic.status === 'locked' ? 'not-allowed' : 'pointer',
+              boxShadow: topic.status !== 'locked' ? `0 4px 15px ${borderColor}40` : 'none'
+            }
+          });
+
+          // CONNECT ALL TOPICS DIRECTLY TO THE HUB (This creates the fan!)
+          rawEdges.push({
+            id: `e-${unit.id}-${topic.id}`,
+            source: unit.id,
+            target: topic.id,
+            type: 'default', // BEZIER CURVES FOR SWOOPING BRANCHES
+            animated: topic.status === 'unlocked',
+            style: { stroke: edgeColor, strokeWidth: 3 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor }
+          });
+
+          // ==========================================
+          // LEVEL 3: SUBTOPIC NODES (The Child Arc - Pastel Pink)
+          // ==========================================
+          if (topic.cachedNote && topic.cachedNote.subtopics) {
+            topic.cachedNote.subtopics.forEach((subtopic) => {
+              const subtopicNodeId = `sub-${topic.id}-${subtopic.id}`;
+              rawNodes.push({
+                id: subtopicNodeId,
+                data: {
+                  label: (
+                    <div className="flex items-center gap-3">
+                      <span className="bg-pink-200 text-pink-900 font-black px-2.5 py-1 rounded-full text-xs shrink-0">
+                        {subtopic.id}
+                      </span>
+                      <span className="text-xs font-bold truncate">
+                        {subtopic.title}
+                      </span>
+                    </div>
+                  ),
+                  isSubtopic: true
+                },
+                style: {
+                  backgroundColor: '#fce7f3', // Pastel Pink
+                  color: '#831843', // Dark Pink Text
+                  border: '2px solid #fbcfe8', 
+                  borderRadius: '50px', // Organic Pill Shape
+                  width: 240,
+                  padding: '8px 16px',
+                  boxShadow: 'none'
+                }
+              });
+
+              // Branch from Topic to Subtopic (Connect them all back)
+              rawEdges.push({
+                id: `e-${topic.id}-${subtopicNodeId}`,
+                source: topic.id,
+                target: subtopicNodeId,
+                type: 'default', // Sweeping Curve
+                style: { stroke: '#fbcfe8', strokeWidth: 2, strokeDasharray: '5,5' }, 
+              });
+            });
+          }
+        });
+      }
+    });
+
+    return getLayoutedElements(rawNodes, rawEdges);
+  }, [syllabusData, expandedUnits]);
+
+  const handleElementClick = (event, node) => {
+    if (!node.data) return; // ignore edge clicks
+    
+    // 1. Click Unit -> Toggle Expand
+    if (!node.data.isTopic && !node.data.isSubtopic) {
+      toggleUnit(node.id);
+      return;
+    }
+
+    // 2. Click Locked -> Stop
+    if (node.data.status === 'locked') {
+      return alert("🔒 This topic is locked! You must complete previous topics first.");
+    }
+
+    // 3. Click Topic -> Open AI Tutor
+    if (node.data.isTopic) {
+      onNodeClick(node.data.rawTitle);
+    }
+  };
+
+  return (
+    <ReactFlow nodes={nodes} edges={edges} onNodeClick={handleElementClick} fitView panOnScroll={true} className="bg-slate-950">
+      <Background color="#334155" gap={25} size={2} />
+      <Controls className="bg-slate-800 fill-white border-slate-700" />
+    </ReactFlow>
+  );
+};
+
+export default SkillTreeCanvas;
