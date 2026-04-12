@@ -17,12 +17,6 @@ Upload syllabus + resources, unlock topics with quizzes, and learn through an in
 
 ![EngiFlow Preview](frontend/src/assets/hero.png)
 
-## Product Walkthrough
-
-![EngiFlow Demo GIF](frontend/src/assets/hero.png)
-
-Add a short GIF at `frontend/src/assets/demo.gif` and replace the image path above when ready.
-
 ## One-Minute Demo Flow
 
 1. Sign in with Google (Firebase Auth).
